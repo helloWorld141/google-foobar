@@ -1,3 +1,4 @@
+### level 1 - 1/1 ###
 def solution(s):
     atob = {
         'a': '100000',
