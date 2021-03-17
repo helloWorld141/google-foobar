@@ -1,4 +1,4 @@
-#### level 3 - 1/3
+### level 3 - 1/3 ###
 '''
 Doomsday Fuel
 =============
@@ -71,17 +71,6 @@ def solution(m):
     from fractions import Fraction, gcd
     from copy import deepcopy
     from functools import reduce
-    # def normalize(m):
-    #     t = []
-    #     for rid, row in enumerate(m):
-    #         s = sum(row)
-    #         if s:
-    #             r = [Fraction(e, s) for e in row]
-    #         else:
-    #             r = [0 for e in row]
-    #             r[rid] = 1
-    #         t.append(r)
-    #     return t
     def dot(a, b):
         return sum(map(lambda x: x[0]*x[1], zip(a,b)))
     def cols(m):
