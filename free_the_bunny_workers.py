@@ -179,23 +179,7 @@ if __name__=='__main__':
         if verify(sol, t[1]):
             print('CORRECT')
         else: print('FALSE')
-        # print('')
-    # verify([
-    #     [0,1,2,3,4,5],
-    #     [0,1,2,3,6,7],
-    #     [0,1,8,9,6,7],
-    #     [2,3,8,9,6,7],
-    #     [4,5,8,9,6,7],
-    # ], 3)
-    # verify([
-    #     [0,1,2,3,4,5],
-    #     [0,1,2,7,8,9],
-    #     [4,5,6,7,8,9],
-    #     # [1,2,3,4,5,6],
-    #     # [0,1,2,3,8,9],
-    #     # [0,5,6,7,8,9]
-    # ], 3)
-
+        print('')
 
 '''
 Given set U of size n, and an integer m. Construct b subsets of size e. Call the set of subsets B. B has to satify these constraints:
