@@ -66,54 +66,54 @@ def C(n, m):
     denominator = reduce(prod, range(1, n-m+1), 1)
     return numerator/denominator
 
-def assign(res, n, d):
-    from fractions import gcd
-    b = len(res)
-    e = len(res[0])
-    def tto(i, j):
-        return j*b + i
-    def ott(x):
-        return (x%b, x//b)
-    def move1(i,j):
-        return ott((tto(i, j)+1)%(n*d))
-    def move(res, i, j, n_move):
-        new_i, new_j = i, j
-        while n_move:
-            new_i, new_j = move1(new_i, new_j)
-            while res[new_i][new_j] != -1:
-                new_i, new_j = move1(new_i, new_j)
-            n_move -= 1
-        return new_i, new_j
+def choose_bits(n, b, m):
+    from collections import deque
+    from copy import deepcopy
+    def find_kth_1bit(bits, k):
+        count = -1
+        for idx, bit in enumerate(bits):
+            if bit:
+                count += 1
+                if count == k: return idx
 
-    def lcm(x, y):
-        return abs(x*y)//gcd(x,y)
-    filler = [d for i in range(n)]
-    shift = 0
-    # while lcm(b, n+shift) < e:
-    #     shift+=1
-    i = j = 0
-    count = 0
-    for iter in range(d):
-        for k in range(n):
-            while k in res[i]:
-                i, j = move(res, i, j, 1)
-            res[i][j] = k
-            filler[k] -= 1
-            count += 1
-            if count == n*d: return
-            i, j = move(res, i, j, 1)
-            # print(i, j)
-        i, j = move(res, i,j,shift)
+    bits = [[1]*m+[0]*(b-m)]
+    q = deque()
+    for i in range(m-1, -1, -1):
+        q.append((i, -1))
+    endpoint = b-1
+    for i in range(n-1):
+        kth_1bit, origin = q.popleft()
+        new_b = deepcopy(bits[origin])
+        cur = find_kth_1bit(new_b, kth_1bit)
+        new_b[cur], new_b[cur+1] = new_b[cur+1], new_b[cur]
+        if cur+1 < endpoint:
+            if new_b[cur+2] == 0: q.append((kth_1bit, len(bits)))
+            else: q.append((kth_1bit, -1))
+        else:
+            endpoint -= 1
+        bits.append(new_b)
+    return reversed(bits)
+
+def bits_to_buns(bits):
+    n = len(bits)
+    b = len(bits[0])
+    buns = list()
+    for i in range(b):
+        bun = list()
+        for j in range(n):
+            if bits[j][i]:
+                bun.append(j)
+        buns.append(bun)
+    return buns
 
 def solution(b, m):
     n, e = C(b, m-1), C(b-1, m-1) # n is total number of keys, e is the number of keys each bunny must have
     d = b-m+1 # d is the number of duplicates each unique key must have
     assert(n*d == b*e)
-    res = [[-1 for i in range(e)] for j in range(b)]
-    # print(b,m)
-    assign(res, n, d)
-    # print(b,d)
-    return res
+    bits = choose_bits(n, b, d)
+    res = bits_to_buns(list(bits))
+    res = [sorted(a) for a in res]
+    return sorted(res)
 
 ### verification ###
 def set_union(ss):
@@ -149,23 +149,31 @@ if __name__=='__main__':
         # [3,1],
         # [3,2],
         # [4,2],
-        [4,3], [4,4],
+        # [4,3], [4,4],
         [5,3],
-        [6,5]
+        # [6,5]
     ]
-    # for t in tests:
-    #     print(t)
-    #     sol = solution(*t)
-    #     print(sol)
-    #     verify(sol, t[1])
-    #     print('')
-    verify([
-        [0,1,2,3,4,5],
-        [0,1,2,3,6,7],
-        [0,1,8,9,6,7],
-        [2,3,8,9,6,7],
-        [4,5,8,9,6,7],
-    ], 3)
+    for t in tests:
+        print(t)
+        sol = solution(*t)
+        print(sol)
+        # verify(sol, t[1])
+        print('')
+    # verify([
+    #     [0,1,2,3,4,5],
+    #     [0,1,2,3,6,7],
+    #     [0,1,8,9,6,7],
+    #     [2,3,8,9,6,7],
+    #     [4,5,8,9,6,7],
+    # ], 3)
+    # verify([
+    #     [0,1,2,3,4,5],
+    #     [0,1,2,7,8,9],
+    #     [4,5,6,7,8,9],
+    #     # [1,2,3,4,5,6],
+    #     # [0,1,2,3,8,9],
+    #     # [0,5,6,7,8,9]
+    # ], 3)
 
 
 '''
