@@ -66,34 +66,52 @@ def C(n, m):
     denominator = reduce(prod, range(1, n-m+1), 1)
     return numerator/denominator
 
-def choose_bits(n, b, m):
+def choose_bits(n, b, d):
     from collections import deque
-    from copy import deepcopy
-    def find_kth_1bit(bits, k):
-        count = -1
-        for idx, bit in enumerate(bits):
-            if bit:
-                count += 1
-                if count == k: return idx
-
-    bits = [[1]*m+[0]*(b-m)]
+    def getChildren(node):
+        children = list()
+        b_str = bin(node)[2:]
+        b_str = '0'*(b-len(b_str)) + b_str
+        for idx, c in enumerate(b_str):
+            if idx == len(b_str)-1: break
+            if c == '1' and b_str[idx+1] == '0':
+                rev_child = bin(int(b_str[::-1],2) + (1<<idx))[-1:1:-1]
+                child = int(rev_child + '0'*(b-len(rev_child)), 2)
+                children.append(child)
+        return children
+    root = int('1'*d+'0'*(b-d), 2)
     q = deque()
-    for i in range(m-1, -1, -1):
-        q.append((i, -1))
-    endpoint = b-1
-    for i in range(n-1):
-        kth_1bit, origin = q.popleft()
-        new_b = deepcopy(bits[origin])
-        cur = find_kth_1bit(new_b, kth_1bit)
-        new_b[cur], new_b[cur+1] = new_b[cur+1], new_b[cur]
-        if cur+1 < endpoint:
-            if new_b[cur+2] == 0: q.append((kth_1bit, len(bits)))
-            else: q.append((kth_1bit, -1))
-        else:
-            endpoint -= 1
-        bits.append(new_b)
-    return reversed(bits)
-
+    q.append(root)
+    children = {root: list()}
+    parents = dict()
+    visited = dict()
+    while q:
+        cur = q.popleft()
+        for child in getChildren(cur):
+            if not visited.get(child, False):
+                q.append(child)
+                visited[child] = True
+            children[cur].append(child)
+            children[child] = children.get(child, list())
+            parents[child] = parents.get(child, list())
+            parents[child].append(cur)
+    #### purge tree - for child with more than 1 parent, only keep left-most parent
+    for child, parentList in parents.items():
+        for parent in parentList[1:]:
+            children[parent].remove(child)
+        parents[child] = parentList[:1]
+    #### pre-order traversal but iterate children from right to left (mirrored tree)
+    s = list()
+    path = list()
+    s.append(root)
+    while s:
+        cur = s.pop()
+        b_str = bin(cur)[2:]
+        b_str = '0'*(b-len(b_str)) + b_str
+        path.append([int(c) for c in b_str])
+        for child in children[cur]:
+            s.append(child)
+    return path
 def bits_to_buns(bits):
     n = len(bits)
     b = len(bits[0])
@@ -111,7 +129,7 @@ def solution(b, m):
     d = b-m+1 # d is the number of duplicates each unique key must have
     assert(n*d == b*e)
     bits = choose_bits(n, b, d)
-    res = bits_to_buns(list(bits))
+    res = bits_to_buns(bits)
     res = [sorted(a) for a in res]
     return sorted(res)
 
@@ -126,39 +144,42 @@ def verify(sol, m):
     def findsubsets(s, n):
         return list(itertools.combinations(s, n))
     keys = set_union(sol)
-    print("Set of keys:")
-    print(keys)
+    # print("Set of keys:")
+    # print(keys)
     ### dk can
     subsets = findsubsets(sol, m)
     u = [set_union(subset) for subset in subsets]
     c = min(u, key=lambda x: len(x))
-    print("Subset of m = {0}".format(m))
-    print(c)
+    # print("Subset of m = {0}".format(m))
+    # print(c)
     ### dk du
     subsets = findsubsets(sol, m-1)
-    for subset in subsets:
-        print(subset)
+    # for subset in subsets:
+    #     print(subset)
     u = [set_union(subset) for subset in subsets]
-    c = max(u, key=lambda x: len(x))
-    print("Subset of m-1 = {0}".format(m-1))
-    print(c)
+    d = max(u, key=lambda x: len(x))
+    return (len(keys) == len(c) and (len(d) < len(c)))
+    # print("Subset of m-1 = {0}".format(m-1))
+    # print(c)
 
 if __name__=='__main__':
     tests = [
-        # [2,1], [2,2],
-        # [3,1],
-        # [3,2],
-        # [4,2],
-        # [4,3], [4,4],
+        [2,1], [2,2],
+        [3,1],
+        [3,2],
+        [4,2],
+        [4,3], [4,4],
         [5,3],
-        # [6,5]
+        [6,5]
     ]
     for t in tests:
         print(t)
         sol = solution(*t)
-        print(sol)
-        # verify(sol, t[1])
-        print('')
+        # print(sol)
+        if verify(sol, t[1]):
+            print('CORRECT')
+        else: print('FALSE')
+        # print('')
     # verify([
     #     [0,1,2,3,4,5],
     #     [0,1,2,3,6,7],
