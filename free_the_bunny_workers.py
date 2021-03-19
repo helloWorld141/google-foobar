@@ -1,4 +1,4 @@
-### level 4: 1/2 ###
+### level 4 - 1/2 ###
 """
 Free the Bunny Workers
 ======================
