@@ -196,7 +196,8 @@ def solution(g):
     m = len(g[0])
     dest = matToBin(g)
     rows = bin_to_rows(dest, m, n)
-    prev = {i: 1 for i in range(1<<(m+1))}
+    prev = {i: 1 for i in range(1<<(m+1))}  # key: the second row of the preimages of a dest's row
+                                            # value: the number of possibilities to reach key, following all the rows above its post-image in dest
     for row in rows:
         preimages = list()
         generateState(0, 0, 0, row, 1, m, preimages)
