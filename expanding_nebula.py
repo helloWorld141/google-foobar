@@ -79,6 +79,20 @@ def tto(x, y, c):
 def ott(pos, c):
     return (pos/c, pos%c)
 
+def evolve_row(r1, r2, c):
+    c1 = (r1 & ~(1<<(c-1)))<<1
+    c2 = (r2 & ~(1<<(c-1)))<<1
+    return ((c1&~c2&~r1&~r2) | (~c1&c2&~r1&~r2) | (~c1&~c2&r1&~r2) | (~c1&~c2&~r1&r2)) >> 1
+def bin_to_rows(b, c, expected_r):
+    res = list()
+    while b:
+        res.append(b%(1<<c))
+        b = b/(1<<c)
+    n = len(res)
+    for i in range(expected_r-n):
+        res.append(0)
+    return res[::-1]
+
 def evolve(p, r, c): # r,c are dimensions of p
     windows = [(0,0), (0,1), (1,0), (1,1)]
     def checkWindow(p, i, j):
@@ -125,16 +139,18 @@ def getWindow(cur, pos, r, c):
     return {i: getBit(cur, i, l) for i in idx}
 
 
-def generateState(pos, cur, fixed, dest, r, c): # r, c is dimesions of dest, pos is based on cur dimension
+def generateState(pos, cur, fixed, dest, r, c, res): # r, c is dimesions of dest, pos is based on cur dimension
     from itertools import combinations
     if pos == (r+1)*(c+1): ## done constructing cur
+        # print(binToMat(cur, r+1, c+1))
+        res.append(cur)
         return 1
         # if isPrev(cur, dest, r+1, c+1):
-            # print(cur)
-            # return 1
+        #     print(cur)
+        #     return 1
     if pos % (c+1) == c or pos / (c+1) == r: # pos in last row or last column of cur
         # do nothing
-        return generateState(pos + 1, cur, fixed, dest, r, c)
+        return generateState(pos+1, cur, fixed, dest, r, c, res)
 
     l = (r+1)*(c+1)
     dest_x, dest_y = ott(pos, c+1)
@@ -150,39 +166,39 @@ def generateState(pos, cur, fixed, dest, r, c): # r, c is dimesions of dest, pos
         if b == 1: # we need a 1 somewhere, nBranch == len(free)
             for i in free:
                 cur = setBit(cur, i, l)
-                count += generateState(pos+1, cur, fixed, dest, r, c)
+                count += generateState(pos+1, cur, fixed, dest, r, c, res)
                 cur = unsetBit(cur, i, l)
         else: # we need all 0s or at least 2 1s
-            # TODO: simplify set all to zeros, since it happend in every case
-            count += generateState(pos + 1, cur, fixed, dest, r, c) # set all free to zeros, no matter how many free
             if len(free) == 1: # can't do shit, just move on
                 pass
             elif len(free) == 2: # either both are 0s, or both are 1s
                 cur = setBits(cur, free, l)
-                count += generateState(pos+1, cur, fixed, dest, r, c) # both are 1s
+                count += generateState(pos+1, cur, fixed, dest, r, c, res) # both are 1s
                 cur = unsetBits(cur, free, l)
             elif len(free) == 4: # only happend at the first position, most complicated
                 # there are fucking 11 branches here
-                toSets = list(combinations(free, 2)) + list(combinations(free, 3)) + list(combinations(free, 4))
+                toSets = list(combinations(free, 4)) + list(combinations(free, 3)) + list(combinations(free, 2))
                 for s in toSets:
                     cur = setBits(cur, s, l)
-                    count += generateState(pos+1, cur, fixed, dest, r, c)
+                    count += generateState(pos+1, cur, fixed, dest, r, c, res)
                     cur = unsetBits(cur, s, l)
             else: # not even happening
                 pass
+            # set all to zeros, since it happend in every case of len(free)
+            count += generateState(pos+1, cur, fixed, dest, r, c, res)  # set all free to zeros, no matter how many free
     elif count1 == 1:
         if b == 1: # that's settled, bit 1 must be already fixed, other bits must remain zero, nothing to do here
-            count += generateState(pos + 1, cur, fixed, dest, r, c) # set all free to zeros, no matter how many free
+            count += generateState(pos+1, cur, fixed, dest, r, c, res) # set all free to zeros, no matter how many free
         else: #
             if len(free) == 1:
                 cur = setBits(cur, free, l)
-                count += generateState(pos + 1, cur, fixed, dest, r, c) # set all free to zeros, no matter how many free
+                count += generateState(pos+1, cur, fixed, dest, r, c, res) # set all free to zeros, no matter how many free
                 cur = unsetBits(cur, free, l)
             elif len(free) == 2: # set each bit, or set both bits
-                toSets = list(combinations(free, 1)) + list(combinations(free, 2))
+                toSets = list(combinations(free, 2)) + list(combinations(free, 1))
                 for s in toSets:
                     cur = setBits(cur, s, l)
-                    count += generateState(pos+1, cur, fixed, dest, r, c)
+                    count += generateState(pos+1, cur, fixed, dest, r, c, res)
                     cur = unsetBits(cur, s, l)
             else: # cant have 3 or 4 free here
                 pass
@@ -194,9 +210,10 @@ def generateState(pos, cur, fixed, dest, r, c): # r, c is dimesions of dest, pos
             toSets = list()
             for i in range(len(free)+1):
                 toSets.extend(list(combinations(free, i)))
+            toSets = reversed(toSets)
             for s in toSets:
                 cur = setBits(cur, s, l)
-                count += generateState(pos+1, cur, fixed, dest, r, c)
+                count += generateState(pos+1, cur, fixed, dest, r, c, res)
                 cur = unsetBits(cur, s, l)
     return count
 
@@ -204,17 +221,109 @@ def countStates(dest, r, c): # r, c is dimensions of dest
     cur = 0
     fixed = 0
     pos = 0
-    return generateState(pos, cur, fixed, dest, r, c)
+    res = list()
+    count = generateState(pos, cur, fixed, dest, r, c, res)
+    print(res)
+    return count
 
-def solution(g):
+def brute_force(g):
     n = len(g)
     m = len(g[0])
     dest = matToBin(g)
     return countStates(dest, n, m)
 
+def getCol(mat, i):
+    return [row[i] for row in mat]
+def transpose(g):
+    m = len(g[0])
+    return [getCol(g, i) for i in range(m)]
+def solution(g):
+    from collections import defaultdict
+    g = transpose(g)
+    n = len(g)
+    m = len(g[0])
+    dest = matToBin(g)
+    rows = bin_to_rows(dest, m, n)
+    prev = {i: 1 for i in range(1<<(m+1))}
+    for row in rows:
+        preimages = list()
+        generateState(0, 0, 0, row, 1, m, preimages)
+        preimages_rows = [bin_to_rows(pre, m+1, 2) for pre in preimages]
+        count = defaultdict(int)
+        for preimage in preimages_rows:
+            if preimage[0] in prev:
+                count[preimage[1]] += prev[preimage[0]]
+        prev = count
+        # print(preimages)
+        # print(binToMat(preimages[0], 2, m+1)
+    return sum(prev.values())
+
+### experiment ###
+def vsplitMat(mat, split):
+    return [row[split] for row in mat]
+
+def deriveMat(mat):
+    n = len(mat)
+    m = len(mat[0])
+    split = (m+1)/2
+    left = vsplitMat(mat, slice(split))
+    right = vsplitMat(mat, slice(split-1, None))
+    middle = vsplitMat(mat, slice(split-1, split))
+    return left, right, middle
+
 if __name__=='__main__':
     tests = [
-        [[True, False, True], [False, True, False], [True, False, True]], # expected 4
+        [[True, False, True],
+         [False, True, False],
+         [True, False, True]], # expected 4
+        #
+        # [[True, False, True],
+        #  [False, True, False],
+        #  [False, False, False]],  # expected 4
+        #
+        # [[True,  True, True, True],
+        #  [False, False, False, False],
+        #  [False, True, True, False]],  # expected 4
+
+        # [[True, True],
+        #  [False, False],
+        #  [False, True]],
+        #
+        # [[True, True],
+        #  [False, False],
+        #  [True, True]]
+        #
+        # [[True, False, True],
+        #  [False, True, True],
+        #  [False, False, True]],
+        #
+        # [[True, False, True]],
+        # [
+        #     [True],
+        #     [False],
+        #     [False],
+        # ],
+        # [
+        #     [True, True],
+        #     [False, True]
+        # ],
+        #
+        # [
+        #     [True, False],
+        #     [False, True]
+        # ],
+        # [
+        #     [True, False],
+        #     [True, True]
+        # ],
+        # [
+        #     [False, False],
+        #     [False, True]
+        # ],
+        # [
+        #     [True, False],
+        #     [True, True]
+        # ],
 
         [[True, False, True, False, False, True], [True, False, True, False, False, False],
          [True, True, True, False, False, False], [True, False, True, False, False, False]],  # expected: 1109
@@ -241,5 +350,25 @@ if __name__=='__main__':
     # c = len(p[0])
     # dest = matToBin(tests[0])
     # print(isPrev(p_bin, dest, r, c))
+    #### solve tests #####
     for t in tests:
         print(solution(t))
+    #     left, right, mid = deriveMat(t)
+    #     print(left)
+    #     print(right)
+    #     print(mid)
+    #
+    #     print(solution(left))
+    #     print(solution(right))
+    #     print(solution(mid))
+    #     print('')
+
+    # for i in range(2**4):
+    #     n = m = 2
+    #     print("Config {0}:".format(i))
+    #     print(binToMat(i, n, m))
+    #     print("Count = {0}".format(countStates(i, n, m)))
+    # print(evolve_row(4,1,3))
+    # print(evolve_row(6, 5, 3))
+    # print(bin_to_rows(int('101110100', 2), 3, 3))
+    # print(transpose([[1,2,3], [4,5,6]]))
