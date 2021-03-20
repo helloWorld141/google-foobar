@@ -78,11 +78,6 @@ def tto(x, y, c):
     return x*c+y
 def ott(pos, c):
     return (pos/c, pos%c)
-
-def evolve_row(r1, r2, c):
-    c1 = (r1 & ~(1<<(c-1)))<<1
-    c2 = (r2 & ~(1<<(c-1)))<<1
-    return ((c1&~c2&~r1&~r2) | (~c1&c2&~r1&~r2) | (~c1&~c2&r1&~r2) | (~c1&~c2&~r1&r2)) >> 1
 def bin_to_rows(b, c, expected_r):
     res = list()
     while b:
@@ -92,23 +87,6 @@ def bin_to_rows(b, c, expected_r):
     for i in range(expected_r-n):
         res.append(0)
     return res[::-1]
-
-def evolve(p, r, c): # r,c are dimensions of p
-    windows = [(0,0), (0,1), (1,0), (1,1)]
-    def checkWindow(p, i, j):
-        coords = [(i+x, j+y) for x,y in windows]
-        values = [getBit(p, tto(coord[0], coord[1], c), r*c) for coord in coords]
-        return values.count(1) == 1
-    res = 0
-    for i in range(r-1):
-        for j in range(c-1):
-            if checkWindow(p, i, j):
-                res = setBit(res, tto(i, j, c-1), (r-1)*(c-1))
-    return res
-
-def isPrev(p, state, r, c): # r,c are dimensions of p (bigger than state's)
-    state_ = evolve(p, r, c)
-    return state == state_
 
 def matToBin(c):
     bin_str = ''.join([''.join([str(int(i)) for i in row]) for row in c])
@@ -123,14 +101,6 @@ def binToMat(b, n, m):
         mat.append(row)
     return mat
 
-# def exaustedSearch(dest):
-#     n = len(dest)+1
-#     m = len(dest[0])+1
-#     count = 0
-#     dest_bin = matToBin(dest)
-#     for i in range(2**(n*m)):
-#         if isPrev(i, dest_bin, n, m): count += 1
-#     return count
 def getWindow(cur, pos, r, c):
     l = r*c
     offsets = [(0,0), (0,1), (1,0), (1,1)]
@@ -145,9 +115,6 @@ def generateState(pos, cur, fixed, dest, r, c, res): # r, c is dimesions of dest
         # print(binToMat(cur, r+1, c+1))
         res.append(cur)
         return 1
-        # if isPrev(cur, dest, r+1, c+1):
-        #     print(cur)
-        #     return 1
     if pos % (c+1) == c or pos / (c+1) == r: # pos in last row or last column of cur
         # do nothing
         return generateState(pos+1, cur, fixed, dest, r, c, res)
@@ -217,21 +184,6 @@ def generateState(pos, cur, fixed, dest, r, c, res): # r, c is dimesions of dest
                 cur = unsetBits(cur, s, l)
     return count
 
-def countStates(dest, r, c): # r, c is dimensions of dest
-    cur = 0
-    fixed = 0
-    pos = 0
-    res = list()
-    count = generateState(pos, cur, fixed, dest, r, c, res)
-    print(res)
-    return count
-
-def brute_force(g):
-    n = len(g)
-    m = len(g[0])
-    dest = matToBin(g)
-    return countStates(dest, n, m)
-
 def getCol(mat, i):
     return [row[i] for row in mat]
 def transpose(g):
@@ -259,6 +211,44 @@ def solution(g):
     return sum(prev.values())
 
 ### experiment ###
+
+def evolve_row(r1, r2, c):
+    c1 = (r1 & ~(1<<(c-1)))<<1
+    c2 = (r2 & ~(1<<(c-1)))<<1
+    return ((c1&~c2&~r1&~r2) | (~c1&c2&~r1&~r2) | (~c1&~c2&r1&~r2) | (~c1&~c2&~r1&r2)) >> 1
+
+def evolve(p, r, c): # r,c are dimensions of p
+    windows = [(0,0), (0,1), (1,0), (1,1)]
+    def checkWindow(p, i, j):
+        coords = [(i+x, j+y) for x,y in windows]
+        values = [getBit(p, tto(coord[0], coord[1], c), r*c) for coord in coords]
+        return values.count(1) == 1
+    res = 0
+    for i in range(r-1):
+        for j in range(c-1):
+            if checkWindow(p, i, j):
+                res = setBit(res, tto(i, j, c-1), (r-1)*(c-1))
+    return res
+
+def isPrev(p, state, r, c): # r,c are dimensions of p (bigger than state's)
+    state_ = evolve(p, r, c)
+    return state == state_
+
+def countStates(dest, r, c): # r, c is dimensions of dest
+    cur = 0
+    fixed = 0
+    pos = 0
+    res = list()
+    count = generateState(pos, cur, fixed, dest, r, c, res)
+    print(res)
+    return count
+
+def brute_force(g):
+    n = len(g)
+    m = len(g[0])
+    dest = matToBin(g)
+    return countStates(dest, n, m)
+
 def vsplitMat(mat, split):
     return [row[split] for row in mat]
 
