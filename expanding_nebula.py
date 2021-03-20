@@ -57,29 +57,42 @@ solution.solution([[True, False, True, False, False, True, True, True], [True, F
 Output:
     254
 '''
-def setBit(b, k):
+def setBit(b, k, l):
+    k = l-k-1
     return b | (1<<k)
-def getBit(b, k):
+def unsetBit(b, k, l):
+    k = l-k-1
+    return b & ~(1<<k)
+def setBits(b, ks, l):
+    for k in ks:
+        b = setBit(b, k, l)
+    return b
+def unsetBits(b, ks, l):
+    for k in ks:
+        b = unsetBit(b, k, l)
+    return b
+def getBit(b, k, l):
+    k = l-k-1
     return (b>>k) & 1
 def tto(x, y, c):
     return x*c+y
 def ott(pos, c):
-    return (pos%c, pos/c)
+    return (pos/c, pos%c)
 
-def evolve(p, r, c):
+def evolve(p, r, c): # r,c are dimensions of p
     windows = [(0,0), (0,1), (1,0), (1,1)]
     def checkWindow(p, i, j):
         coords = [(i+x, j+y) for x,y in windows]
-        values = [getBit(p, tto(coord[0], coord[1], c)) for coord in coords]
+        values = [getBit(p, tto(coord[0], coord[1], c), r*c) for coord in coords]
         return values.count(1) == 1
     res = 0
     for i in range(r-1):
         for j in range(c-1):
             if checkWindow(p, i, j):
-                res = setBit(res, tto(i, j, c-1))
+                res = setBit(res, tto(i, j, c-1), (r-1)*(c-1))
     return res
 
-def isPrev(p, state, r, c):
+def isPrev(p, state, r, c): # r,c are dimensions of p (bigger than state's)
     state_ = evolve(p, r, c)
     return state == state_
 
@@ -96,24 +109,115 @@ def binToMat(b, n, m):
         mat.append(row)
     return mat
 
-def exaustedSearch(dest):
-    n = len(dest)+1
-    m = len(dest[0])+1
-    count = 0
-    dest_bin = matToBin(dest)
-    for i in range(2**(n*m)):
-        if isPrev(i, dest_bin, n, m): count += 1
+# def exaustedSearch(dest):
+#     n = len(dest)+1
+#     m = len(dest[0])+1
+#     count = 0
+#     dest_bin = matToBin(dest)
+#     for i in range(2**(n*m)):
+#         if isPrev(i, dest_bin, n, m): count += 1
+#     return count
+def getWindow(cur, pos, r, c):
+    l = r*c
+    offsets = [(0,0), (0,1), (1,0), (1,1)]
+    x, y = ott(pos, c)
+    idx = [tto(x+dx, y+dy, c) for dx, dy in offsets]
+    return {i: getBit(cur, i, l) for i in idx}
+
+
+def generateState(pos, cur, fixed, dest, r, c): # r, c is dimesions of dest, pos is based on cur dimension
+    from itertools import combinations
+    if pos == (r+1)*(c+1): ## done constructing cur
+        return 1
+        # if isPrev(cur, dest, r+1, c+1):
+            # print(cur)
+            # return 1
+    if pos % (c+1) == c or pos / (c+1) == r: # pos in last row or last column of cur
+        # do nothing
+        return generateState(pos + 1, cur, fixed, dest, r, c)
+
+    l = (r+1)*(c+1)
+    dest_x, dest_y = ott(pos, c+1)
+    dest_pos = tto(dest_x, dest_y, c)
+    b = getBit(dest, dest_pos, r*c)
+    windows = getWindow(cur, pos, r+1, c+1)
+    free = [k for k in windows.keys() if not getBit(fixed, k, l)] # free cell MUST be 0
+    # fixed the current examined window
+    fixed = setBits(fixed, windows.keys(), l)
+    count1 = windows.values().count(1)
+    count = 0 # count the number of satisfied prev states
+    if count1 == 0:
+        if b == 1: # we need a 1 somewhere, nBranch == len(free)
+            for i in free:
+                cur = setBit(cur, i, l)
+                count += generateState(pos+1, cur, fixed, dest, r, c)
+                cur = unsetBit(cur, i, l)
+        else: # we need all 0s or at least 2 1s
+            # TODO: simplify set all to zeros, since it happend in every case
+            count += generateState(pos + 1, cur, fixed, dest, r, c) # set all free to zeros, no matter how many free
+            if len(free) == 1: # can't do shit, just move on
+                pass
+            elif len(free) == 2: # either both are 0s, or both are 1s
+                cur = setBits(cur, free, l)
+                count += generateState(pos+1, cur, fixed, dest, r, c) # both are 1s
+                cur = unsetBits(cur, free, l)
+            elif len(free) == 4: # only happend at the first position, most complicated
+                # there are fucking 11 branches here
+                toSets = list(combinations(free, 2)) + list(combinations(free, 3)) + list(combinations(free, 4))
+                for s in toSets:
+                    cur = setBits(cur, s, l)
+                    count += generateState(pos+1, cur, fixed, dest, r, c)
+                    cur = unsetBits(cur, s, l)
+            else: # not even happening
+                pass
+    elif count1 == 1:
+        if b == 1: # that's settled, bit 1 must be already fixed, other bits must remain zero, nothing to do here
+            count += generateState(pos + 1, cur, fixed, dest, r, c) # set all free to zeros, no matter how many free
+        else: #
+            if len(free) == 1:
+                cur = setBits(cur, free, l)
+                count += generateState(pos + 1, cur, fixed, dest, r, c) # set all free to zeros, no matter how many free
+                cur = unsetBits(cur, free, l)
+            elif len(free) == 2: # set each bit, or set both bits
+                toSets = list(combinations(free, 1)) + list(combinations(free, 2))
+                for s in toSets:
+                    cur = setBits(cur, s, l)
+                    count += generateState(pos+1, cur, fixed, dest, r, c)
+                    cur = unsetBits(cur, s, l)
+            else: # cant have 3 or 4 free here
+                pass
+    else: # count1 > 1
+        if b == 1: # this is a dead end
+            pass
+        else: # this is already satisfied, the free bits can be free
+            # 2**free branches here
+            toSets = list()
+            for i in range(len(free)+1):
+                toSets.extend(list(combinations(free, i)))
+            for s in toSets:
+                cur = setBits(cur, s, l)
+                count += generateState(pos+1, cur, fixed, dest, r, c)
+                cur = unsetBits(cur, s, l)
     return count
 
+def countStates(dest, r, c): # r, c is dimensions of dest
+    cur = 0
+    fixed = 0
+    pos = 0
+    return generateState(pos, cur, fixed, dest, r, c)
+
 def solution(g):
-    return exaustedSearch(g)
+    n = len(g)
+    m = len(g[0])
+    dest = matToBin(g)
+    return countStates(dest, n, m)
 
 if __name__=='__main__':
     tests = [
         [[True, False, True], [False, True, False], [True, False, True]], # expected 4
 
         [[True, False, True, False, False, True], [True, False, True, False, False, False],
-         [True, True, True, False, False, False], [True, False, True, False, False, False]],  #
+         [True, True, True, False, False, False], [True, False, True, False, False, False]],  # expected: 1109
 
         [[True, False, True, False, False, True, True, True], [True, False, True, False, False, False, True, False],
          [True, True, True, False, False, False, True, False], [True, False, True, False, False, False, True, False],
@@ -126,16 +230,16 @@ if __name__=='__main__':
     ]
 
     ### verify a solution ###
-    p = [
-        [False, True, False, False],
-        [False, False, True, False],
-        [False, False, False, True],
-        [True, False, False, False]
-    ]
-    p_bin = matToBin(p)
-    r = len(p)
-    c = len(p[0])
-    dest = matToBin(tests[0])
-    print(isPrev(p_bin, dest, r, c))
+    # p = [
+    #     [False, True, False, False],
+    #     [False, False, True, False],
+    #     [False, False, False, True],
+    #     [True, False, False, False]
+    # ] # known CORRECT
+    # p_bin = matToBin(p)
+    # r = len(p)
+    # c = len(p[0])
+    # dest = matToBin(tests[0])
+    # print(isPrev(p_bin, dest, r, c))
     for t in tests:
         print(solution(t))
